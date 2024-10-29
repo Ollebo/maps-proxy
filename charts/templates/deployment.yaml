@@ -1,0 +1,60 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: {{ .Values.name }}
+  name: {{ .Values.name }}
+  namespace: ollebo
+spec:
+  ports:
+  - name: flask
+    port: 8080
+    protocol: TCP
+    targetPort: 8080
+  selector:
+    app: {{ .Values.name }}
+  sessionAffinity: None
+  type: ClusterIP
+---
+# Source: ollebo-map/templates/map.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.name }}
+  namespace: ollebo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Values.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.name }}
+    spec:
+      containers:
+        - image: ollebo/map-proxy:{{ .Values.gitsha }}
+          name: proxy
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+          env:
+            - name: S3_ENDPOINT
+              value: minio.server.robots.beer
+            - name: AWS_S3_FILE_BUCKET
+              value: public-ollebo-com
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: ollebo
+                  key: AWS_ACCESS_KEY_ID
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: ollebo
+                  key: AWS_SECRET_ACCESS_KEY
+            - name: REDIS_HOST
+              value: redis
+            - name: REDIS_PORT
+              value: "6379"
+
