@@ -33,7 +33,7 @@ spec:
         app: {{ .Values.name }}
     spec:
       containers:
-        - image: ollebo/map-proxy:{{ .Values.gitsha }}
+        - image: ollebo/maps-proxy:{{ .Values.image.tag }}
           name: proxy
           imagePullPolicy: Always
           ports:

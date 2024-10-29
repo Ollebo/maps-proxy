@@ -6,5 +6,6 @@
 
 
 name: maps-proxy
-gitsha: latest
+image:
+  tag: latest
 
