@@ -1,3 +1,5 @@
 minio
 flask
 Flask-Caching
+prometheus-flask-exporter
+gunicorn

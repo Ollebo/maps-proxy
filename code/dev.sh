@@ -1,5 +1,4 @@
 #!/bin/bash
 echo "Atring up the http server"
 
-
-gunicorn -w 1 -b 0.0.0.0:8080 'app:app'
+flask --app app run --host 0.0.0.0 --port 8080

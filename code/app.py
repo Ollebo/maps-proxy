@@ -1,8 +1,13 @@
 from flask import Flask, request
+from prometheus_flask_exporter import PrometheusMetrics
+
 
 app = Flask(__name__)
+metrics = PrometheusMetrics(app)
+
 import k8s
 import minioBackend
+
 
 
 
