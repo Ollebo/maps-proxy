@@ -11,8 +11,7 @@ services:
     environment:
       - S3_ENDPOINT=minio.server.robots.beer
       - AWS_S3_FILE_BUCKET=public-ollebo-com
-      - AWS_ACCESS_KEY_ID=
-      - AWS_SECRET_ACCESS_KEY=
+
       - REDIS_HOST=redis
       - REDIS_PORT=6379
 
