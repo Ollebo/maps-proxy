@@ -10,7 +10,7 @@ services:
       - 8888:8080
     environment:
       - S3_ENDPOINT=minio.server.robots.beer
-      - AWS_S3_FILE_BUCKET=public-ollebo-com
+      - AWS_S3_FILE_BUCKET=lifeandshell
       - AWS_ACCESS_KEY_ID=4Y6Ksc64SxfCciXgLqt0
       - AWS_SECRET_ACCESS_KEY=BvRdpVwh99xQUR6FGMzFklAySzkBOZBfr5JrJ60o
       - REDIS_HOST=redis

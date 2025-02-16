@@ -19,8 +19,11 @@ BUCKET_NAME = S3_FILE_BUCKET
 FILE_PREFIX = "/file_cache/"
 
 def getFile(filename):
-    
     print(filename)
+    if filename=="":
+        print("Adidng index.html to end")
+        filename=filename+"index.html"
+
     
     WeHaveFile = False
     fileIsDownloaded = False
@@ -38,6 +41,7 @@ def getFile(filename):
             WeHaveFile = True
             print("file downloaded")
         except:
+            print(FILE_DEST)
             return "File not found"
     #
     ##Read the file
