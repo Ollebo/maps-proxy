@@ -3,7 +3,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: ollebo/maps-http-server
+    image: ollebo/maps-http-server:0.4
     volumes:
       - ./code:/code
     ports:
