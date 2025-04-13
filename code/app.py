@@ -7,6 +7,7 @@ metrics = PrometheusMetrics(app)
 
 import k8s
 import minioBackend
+import utils
 
 
 
@@ -19,6 +20,11 @@ import minioBackend
 #k8s routes
 app.add_url_rule('/ready', view_func=k8s.ready)
 app.add_url_rule('/healthz', view_func=k8s.healthz)
+
+#Clear cache
+@app.route('/cache/clear/2223331222')
+def cache():
+    return utils.cleanCache()
 
 
 #backend
