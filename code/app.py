@@ -22,7 +22,7 @@ app.add_url_rule('/ready', view_func=k8s.ready)
 app.add_url_rule('/healthz', view_func=k8s.healthz)
 
 #Clear cache
-@app.route('/cache/clear/2223331222')
+@app.route('/cache/clear/')
 def cache():
     return utils.cleanCache()
 

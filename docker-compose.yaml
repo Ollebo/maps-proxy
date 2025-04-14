@@ -15,4 +15,5 @@ services:
       - AWS_SECRET_ACCESS_KEY=
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - CACHE_KEY=1234
 

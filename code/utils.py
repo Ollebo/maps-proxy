@@ -1,5 +1,8 @@
 import os, shutil
 
+
+CACHE_KEY = os.environ.get('CACHE_KEY')
+
 def cleanCache():
     folder = '/file_cache/'
     for filename in os.listdir(folder):
