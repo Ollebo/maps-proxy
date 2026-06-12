@@ -9,8 +9,8 @@ services:
     ports:
       - 8888:8080
     environment:
-      - S3_ENDPOINT=minio.server.robots.beer
-      - AWS_S3_FILE_BUCKET=lifeandshell
+      - S3_ENDPOINT=hel1.your-objectstorage.com
+      - AWS_S3_FILE_BUCKET=map-storage
       - AWS_ACCESS_KEY_ID=
       - AWS_SECRET_ACCESS_KEY=
       - REDIS_HOST=redis
