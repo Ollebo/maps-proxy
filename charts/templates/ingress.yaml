@@ -9,6 +9,7 @@ metadata:
       kubernetes.io/tls-acme: "true"
       traefik.ingress.kubernetes.io/router.entrypoints: websecure
       traefik.ingress.kubernetes.io/router.tls: "true"
+      traefik.ingress.kubernetes.io/router.middlewares: "ollebo-terracotta-cors@kubernetescrd,ollebo-terracotta-cache@kubernetescrd"
 spec:
   tls:
   - hosts:
@@ -18,6 +19,55 @@ spec:
     - host: maps.ollebo.com
       http:
         paths:
+        - backend:
+            service:
+              name: terracotta
+              port:
+                number: 5000
+          path: /rgb
+          pathType: Prefix
+        - backend:
+            service:
+              name: terracotta
+              port:
+                number: 5000
+          path: /singleband
+          pathType: Prefix
+        - backend:
+            service:
+              name: terracotta
+              port:
+                number: 5000
+          path: /metadata
+          pathType: Prefix
+        - backend:
+            service:
+              name: terracotta
+              port:
+                number: 5000
+          path: /keys
+          pathType: Prefix
+        - backend:
+            service:
+              name: terracotta
+              port:
+                number: 5000
+          path: /colormap
+          pathType: Prefix
+        - backend:
+            service:
+              name: terracotta
+              port:
+                number: 5000
+          path: /datasets
+          pathType: Prefix
+        - backend:
+            service:
+              name: terracotta
+              port:
+                number: 5000
+          path: /compute
+          pathType: Prefix
         - backend:
             service:
               name: {{ .Values.name }}

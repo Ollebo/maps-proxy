@@ -42,6 +42,10 @@ spec:
             - name: S3_ENDPOINT
               value: hel1.your-objectstorage.com
             - name: AWS_S3_FILE_BUCKET
+              value: ollebo-maps
+            - name: AWS_S3_PRIVATE_BUCKET
+              value: ollebo-private-maps
+            - name: AWS_S3_MODELS_BUCKET
               value: map-storage
             - name: AWS_ACCESS_KEY_ID
               valueFrom:
