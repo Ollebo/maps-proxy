@@ -3,3 +3,5 @@ flask
 Flask-Caching
 prometheus-flask-exporter
 gunicorn
+pyjwt[crypto]
+requests

@@ -1,7 +1,9 @@
 from minio import Minio
-from flask import make_response
+from flask import make_response, request, jsonify
 import os
 import os.path
+
+import auth
 
 
 S3_FILE_BUCKET = os.environ.get('AWS_S3_FILE_BUCKET')
@@ -36,6 +38,15 @@ def getFile(filename):
         filename=filename+"index.html"
 
     bucket, key = resolveBucket(filename)
+
+    if filename.startswith("private/") or filename.startswith("models/"):
+        space_id = key.split("/", 1)[0] if key else ""
+        if not space_id:
+            return jsonify({"error": "missing space id"}), 400
+        err = auth.check_space_access(request, space_id)
+        if err is not None:
+            status, body = err
+            return jsonify(body), status
 
     WeHaveFile = False
     fileIsDownloaded = False
