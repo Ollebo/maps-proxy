@@ -62,7 +62,7 @@ spec:
             - name: REDIS_PORT
               value: "6379"
             - name: OIDC_DISCOVERY_URL
-              value: https://auth.ollebo.com/realms/ollebo/.well-known/openid-configuration
+              value: https://auth.ollebo.com/realms/master/.well-known/openid-configuration
             - name: OIDC_COOKIE_NAME
               value: access_token
 
