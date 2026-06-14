@@ -1,0 +1,26 @@
+# CORS for terracotta tile responses (referenced as ollebo-terracotta-cors@kubernetescrd)
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: terracotta-cors
+  namespace: ollebo
+spec:
+  headers:
+    accessControlAllowMethods:
+      - GET
+      - OPTIONS
+    accessControlAllowOriginList:
+      - "*"
+    accessControlMaxAge: 100
+    addVaryHeader: true
+---
+# 1-day browser/CDN cache for terracotta tiles (referenced as ollebo-terracotta-cache@kubernetescrd)
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: terracotta-cache
+  namespace: ollebo
+spec:
+  headers:
+    customResponseHeaders:
+      Cache-Control: "public, max-age=86400"

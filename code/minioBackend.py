@@ -31,11 +31,20 @@ def resolveBucket(path):
     return S3_FILE_BUCKET, path
 
 
+INDEX_HTML = (
+    "<!doctype html>"
+    "<html><head><meta charset=\"utf-8\">"
+    "<title>maps.ollebo.com map server</title></head>"
+    "<body><h1>maps.ollebo.com map server</h1></body></html>"
+)
+
+
 def getFile(filename):
     print(filename)
-    if filename=="":
-        print("Adidng index.html to end")
-        filename=filename+"index.html"
+    if filename == "" or filename == "index.html":
+        response = make_response(INDEX_HTML)
+        response.headers.set("Content-Type", "text/html")
+        return response
 
     bucket, key = resolveBucket(filename)
 
