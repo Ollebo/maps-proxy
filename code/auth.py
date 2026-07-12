@@ -60,8 +60,18 @@ def validate_token(token):
     )
 
 
-def _realm_roles(claims):
-    return claims.get("realm_access", {}).get("roles", []) or []
+def _space_grants(claims):
+    # A space is a Keycloak group whose NAME is the space id, delivered in the
+    # token's "groups" claim. Keycloak may emit either a bare name ("<space>")
+    # or a full group path ("/<space>"), so normalise the leading slash. Realm
+    # roles are included as a fallback for tokens that mapped spaces there.
+    grants = set()
+    for group in claims.get("groups", []) or []:
+        if isinstance(group, str):
+            grants.add(group[1:] if group.startswith("/") else group)
+    for role in claims.get("realm_access", {}).get("roles", []) or []:
+        grants.add(role)
+    return grants
 
 
 def check_space_access(request, space_id):
@@ -72,6 +82,6 @@ def check_space_access(request, space_id):
         claims = validate_token(token)
     except jwt.PyJWTError:
         return 401, {"error": "unauthenticated"}
-    if space_id not in _realm_roles(claims):
+    if space_id not in _space_grants(claims):
         return 403, {"error": "forbidden"}
     return None
