@@ -1,5 +1,6 @@
 import os
 import threading
+import uuid
 
 import jwt
 import requests
@@ -60,28 +61,56 @@ def validate_token(token):
     )
 
 
+def _canonical_uuid(value):
+    # Mirror the ollebo API's jwt_auth._as_space_uuid: a space id is a Keycloak
+    # group whose name is the space UUID. Canonicalize to a lowercase hyphenated
+    # UUID and drop anything that isn't one (legacy group paths, default groups).
+    if not isinstance(value, str):
+        return None
+    try:
+        return str(uuid.UUID(value.strip())).lower()
+    except (ValueError, AttributeError):
+        return None
+
+
 def _space_grants(claims):
-    # A space is a Keycloak group whose NAME is the space id, delivered in the
-    # token's "groups" claim. Keycloak may emit either a bare name ("<space>")
-    # or a full group path ("/<space>"), so normalise the leading slash. Realm
-    # roles are included as a fallback for tokens that mapped spaces there.
+    # Space membership arrives in the "groups" claim (group name == space id).
+    # Keycloak may emit a bare name or a "/name" path; strip the slash and keep
+    # only valid UUIDs. Realm roles are included as a fallback.
     grants = set()
     for group in claims.get("groups", []) or []:
-        if isinstance(group, str):
-            grants.add(group[1:] if group.startswith("/") else group)
+        raw = group[1:] if isinstance(group, str) and group.startswith("/") else group
+        canon = _canonical_uuid(raw)
+        if canon:
+            grants.add(canon)
     for role in claims.get("realm_access", {}).get("roles", []) or []:
-        grants.add(role)
+        canon = _canonical_uuid(role)
+        if canon:
+            grants.add(canon)
     return grants
 
 
+def _extract_token(request):
+    # Prefer the Authorization: Bearer header -- identical to how the ollebo API
+    # (jwt_auth.py) authenticates -- so the SPA sends the same token to both.
+    # Fall back to the access_token cookie for browser subresource requests that
+    # cannot set headers (e.g. <img> map tiles).
+    header = request.headers.get("Authorization", "")
+    parts = header.split(None, 1)
+    if len(parts) == 2 and parts[0].lower() == "bearer" and parts[1].strip():
+        return parts[1].strip()
+    return request.cookies.get(OIDC_COOKIE_NAME)
+
+
 def check_space_access(request, space_id):
-    token = request.cookies.get(OIDC_COOKIE_NAME)
+    token = _extract_token(request)
     if not token:
         return 401, {"error": "unauthenticated"}
     try:
         claims = validate_token(token)
     except jwt.PyJWTError:
         return 401, {"error": "unauthenticated"}
-    if space_id not in _space_grants(claims):
+    want = _canonical_uuid(space_id) or space_id
+    if want not in _space_grants(claims):
         return 403, {"error": "forbidden"}
     return None
