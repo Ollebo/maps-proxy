@@ -48,10 +48,7 @@ def getFile(filename):
 
     bucket, key = resolveBucket(filename)
 
-    # TEMPORARY: auth on models/ is disabled to test file serving end-to-end
-    # without the JWT in the way. models/ is served publicly for now. Re-enable
-    # by restoring `or filename.startswith("models/")` below.
-    if filename.startswith("private/"):
+    if filename.startswith("private/") or filename.startswith("models/"):
         space_id = key.split("/", 1)[0] if key else ""
         if not space_id:
             return jsonify({"error": "missing space id"}), 400
