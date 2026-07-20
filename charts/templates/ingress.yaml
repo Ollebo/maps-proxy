@@ -68,6 +68,31 @@ spec:
                 number: 5000
           path: /compute
           pathType: Prefix
+---
+# maps-proxy catch-all is a SEPARATE ingress WITHOUT the terracotta-cors
+# middleware: that middleware sets Access-Control-Allow-Origin: *, which both
+# duplicates and invalidates the credentialed CORS maps-proxy sends for private
+# maps/models (a "*" origin is illegal with credentials). maps-proxy does its
+# own CORS (echoes the ollebo.com origin + allow-credentials), so this route
+# must carry no CORS middleware. Reuses the cert issued by the ingress above.
+kind: Ingress
+apiVersion: networking.k8s.io/v1
+metadata:
+   name: "maps-proxy-ollebo-com"
+   namespace: ollebo
+   annotations:
+      kubernetes.io/ingress.class: "traefik"
+      traefik.ingress.kubernetes.io/router.entrypoints: websecure
+      traefik.ingress.kubernetes.io/router.tls: "true"
+spec:
+  tls:
+  - hosts:
+    - maps.ollebo.com
+    secretName: maps-ollebo-tls
+  rules:
+    - host: maps.ollebo.com
+      http:
+        paths:
         - backend:
             service:
               name: {{ .Values.name }}
