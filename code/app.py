@@ -1,3 +1,4 @@
+import os
 import re
 
 from flask import Flask, make_response, request
@@ -16,12 +17,25 @@ import utils
 # maps.ollebo.com and must carry the `access_token` cookie, so the browser needs
 # CORS with credentials. Allow-Origin must echo the caller's origin (not "*")
 # when credentials are allowed, so mirror back any ollebo.com origin.
-_ALLOWED_ORIGIN = re.compile(r"^https://([a-z0-9-]+\.)*ollebo\.com$")
+_ALLOWED_ORIGIN = re.compile(r"^https://([a-z0-9-]+\.)*ollebo\.com$", re.IGNORECASE)
+
+# The same app run from a dev server is http://localhost:<port> (or 127.0.0.1 --
+# a different origin to the browser), which no ollebo.com pattern matches, so
+# private maps/models/detections would fail CORS in local development. Match any
+# loopback port; set CORS_ALLOW_LOOPBACK=0 to serve only the ollebo.com hosts.
+_LOOPBACK_ORIGIN = re.compile(r"^http://(localhost|127\.0\.0\.1)(:\d+)?$", re.IGNORECASE)
+_ALLOW_LOOPBACK = os.environ.get("CORS_ALLOW_LOOPBACK", "1") != "0"
 
 
 def _allowed_origin():
     origin = request.headers.get("Origin", "")
-    return origin if origin and _ALLOWED_ORIGIN.match(origin) else None
+    if not origin:
+        return None
+    if _ALLOWED_ORIGIN.match(origin):
+        return origin
+    if _ALLOW_LOOPBACK and _LOOPBACK_ORIGIN.match(origin):
+        return origin
+    return None
 
 
 @app.before_request
