@@ -9,8 +9,23 @@ spec:
     accessControlAllowMethods:
       - GET
       - OPTIONS
+    # Credentialed CORS forbids "*": these tiles are fetched with
+    # crossOrigin: 'use-credentials' (ollebo-maps privateMaps.ts), so the
+    # response must echo one exact origin and allow credentials. Keep this list
+    # in sync with api/code/start.py, dw/src/plugins/cors.js and
+    # maps-proxy/code/app.py -- all four are independent allowlists.
     accessControlAllowOriginList:
-      - "*"
+      - https://dash.ollebo.com
+      - https://www.ollebo.com
+      - https://ollebo.com
+      - https://maps.ollebo.com
+    # Dev servers against prod: vite moves between 5173/4173/3000, and
+    # localhost vs 127.0.0.1 are distinct origins. Anchored -- Traefik matches
+    # this regex unanchored, so a bare pattern would let
+    # https://localhost.evil.com through.
+    accessControlAllowOriginListRegex:
+      - '^http://(localhost|127\.0\.0\.1)(:[0-9]+)?$'
+    accessControlAllowCredentials: true
     accessControlMaxAge: 100
     addVaryHeader: true
 ---
