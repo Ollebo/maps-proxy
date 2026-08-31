@@ -39,6 +39,27 @@ INDEX_HTML = (
 )
 
 
+# Extension -> Content-Type. A file served with no type is guessed by the
+# browser, which is how .geojson used to arrive as HTML and fail to parse in the
+# viewer. dw writes layer data as .geojson; the vector-tile types are here so the
+# same route works when layers grow past plain GeoJSON.
+CONTENT_TYPES = {
+    ".css": "text/css",
+    ".csv": "text/csv",
+    ".geojson": "application/geo+json",
+    ".gif": "image/gif",
+    ".html": "text/html",
+    ".jpeg": "image/jpeg",
+    ".jpg": "image/jpeg",
+    ".js": "text/javascript",
+    ".json": "application/json",
+    ".mvt": "application/vnd.mapbox-vector-tile",
+    ".pbf": "application/vnd.mapbox-vector-tile",
+    ".png": "image/png",
+    ".pmtiles": "application/vnd.pmtiles",
+}
+
+
 def getFile(filename):
     print(filename)
     if filename == "" or filename == "index.html":
@@ -87,22 +108,9 @@ def getFile(filename):
 
         #set the content type
         filename, file_extension = os.path.splitext(FILE_DEST)
-        if file_extension == ".png":
-            response.headers.set('Content-Type', 'image/png')
-        elif file_extension == ".jpg":
-            response.headers.set('Content-Type', 'image/jpeg')
-        elif file_extension == ".jpeg":
-            response.headers.set('Content-Type', 'image/jpeg')
-        elif file_extension == ".gif":
-            response.headers.set('Content-Type', 'image/gif')
-        elif file_extension == ".html":
-            response.headers.set('Content-Type', 'text/html')
-        elif file_extension == ".css":
-            response.headers.set('Content-Type', 'text/css')
-        elif file_extension == ".js":
-            response.headers.set('Content-Type', 'text/javascript')
-        elif file_extension == ".json":
-            response.headers.set('Content-Type', 'application/json')
+        content_type = CONTENT_TYPES.get(file_extension.lower())
+        if content_type:
+            response.headers.set('Content-Type', content_type)
         return response
 
     else:
