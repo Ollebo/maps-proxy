@@ -10,6 +10,7 @@ metrics = PrometheusMetrics(app)
 
 import k8s
 import minioBackend
+import tiles
 import utils
 
 
@@ -78,6 +79,34 @@ app.add_url_rule('/healthz', view_func=k8s.healthz)
 @app.route('/cache/clear/')
 def cache():
     return utils.cleanCache()
+
+
+# Maps we host ourselves: vector tiles rendered by martin from our own PostGIS,
+# plus the TileJSON and style the viewer reads. These are declared before the
+# catch-all so /<layer>/{z}/{x}/{y}.pbf is a tile rather than an object lookup;
+# anything they do not recognise falls back to the catch-all, so no path that
+# worked before stops working. Werkzeug sorts by specificity rather than
+# registration order -- test_routes.py pins that down.
+@app.route('/<layer>/<int:z>/<int:x>/<int:y>.pbf')
+def vector_tile(layer, z, x, y):
+    return tiles.tile(layer, z, x, y)
+
+
+@app.route('/<layer>/tile.json')
+def tile_json(layer):
+    return tiles.metadata_document(layer, 'tile.json')
+
+
+@app.route('/<layer>/style.json')
+def style_json(layer):
+    return tiles.metadata_document(layer, 'style.json')
+
+
+# Upstreams we have to reach over plain HTTP on the browser's behalf; see
+# tiles.PROXY_UPSTREAMS.
+@app.route('/proxy/<name>/<path:path>')
+def proxy_upstream(name, path):
+    return tiles.proxy(name, path)
 
 
 #backend

@@ -14,9 +14,17 @@ AWS_ACCESS_KEY_ID = os.environ.get('AWS_ACCESS_KEY_ID')
 AWS_SECRET_ACCESS_KEY = os.environ.get('AWS_SECRET_ACCESS_KEY')
 
 
-client = Minio(S3_ENDPOINT_URL,
+# The prod endpoint is a bare host ("hel1.your-objectstorage.com") and TLS, which
+# is what Minio() assumes. A local MinIO is plain HTTP, and pointing this at one
+# used to fail as an SSLError swallowed into "file not found" -- so an explicit
+# scheme on S3_ENDPOINT is honoured, and no scheme still means HTTPS.
+_secure = not S3_ENDPOINT_URL.startswith("http://")
+_endpoint = S3_ENDPOINT_URL.split("://", 1)[-1]
+
+client = Minio(_endpoint,
     access_key=AWS_ACCESS_KEY_ID,
     secret_key=AWS_SECRET_ACCESS_KEY,
+    secure=_secure,
 )
 
 
@@ -96,7 +104,10 @@ def getFile(filename):
             print("file downloaded")
         except:
             print(FILE_DEST)
-            return "File not found"
+            # A bare string is a 200 in Flask, which made every miss look like a
+            # successful fetch of the body "File not found" -- fine for an <img>,
+            # fatal for anything that parses the response (MVT, GeoJSON).
+            return jsonify({"error": "not found"}), 404
     #
     ##Read the file
     if WeHaveFile:
@@ -114,4 +125,4 @@ def getFile(filename):
         return response
 
     else:
-        return "File not found"
+        return jsonify({"error": "not found"}), 404

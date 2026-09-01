@@ -65,4 +65,25 @@ spec:
               value: https://auth.ollebo.com/realms/master/.well-known/openid-configuration
             - name: OIDC_COOKIE_NAME
               value: access_token
+            # Vector tiles for the maps we host ourselves. maps-proxy fronts
+            # martin so /<layer>/{z}/{x}/{y}.pbf stays on maps.ollebo.com and
+            # keeps this app's credentialed CORS -- martin itself is ClusterIP
+            # only and is never reachable from outside.
+            - name: MARTIN_URL
+              value: http://martin:3000
+            # Rendered tiles are cached back into the public bucket under
+            # tiles/<layer>/v<version>/... . The version in the key means a
+            # re-import invalidates a layer without a purge.
+            - name: TILE_CACHE_BUCKET
+              value: ollebo-maps
+          volumeMounts:
+            # /file_cache was the container's writable layer: unbounded, and only
+            # ever emptied by the (unauthenticated) /cache/clear/ route. Bounded
+            # here so a large model or a busy tile layer cannot fill the node.
+            - name: file-cache
+              mountPath: /file_cache
+      volumes:
+        - name: file-cache
+          emptyDir:
+            sizeLimit: 5Gi
 
