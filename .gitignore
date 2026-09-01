@@ -1,0 +1,7 @@
+# Byte-compiled artifacts. These were tracked by accident and are rebuilt on
+# every run, so a stale copy in git only ever produces spurious diffs.
+__pycache__/
+*.py[cod]
+
+# Local overrides for docker-compose (S3 endpoint, keys).
+.env
