@@ -65,6 +65,14 @@ spec:
               value: https://auth.ollebo.com/realms/master/.well-known/openid-configuration
             - name: OIDC_COOKIE_NAME
               value: access_token
+            # Apex domains whose sub-hosts may make credentialed cross-origin
+            # requests here (code/app.py echoes the caller's origin back). Two,
+            # because one maps-proxy fronts both ollebo.com and northamlin.com;
+            # the code defaults to ollebo.com alone, so a brand that is not
+            # named here has its private maps blocked by the browser even
+            # though the tiles themselves are served fine.
+            - name: CORS_ALLOWED_DOMAINS
+              value: ollebo.com,northamlin.com
             # Vector tiles for the maps we host ourselves. maps-proxy fronts
             # martin so /<layer>/{z}/{x}/{y}.pbf stays on maps.ollebo.com and
             # keeps this app's credentialed CORS -- martin itself is ClusterIP

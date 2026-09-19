@@ -1,3 +1,19 @@
+{{/*
+  Terracotta's public tile routes. Listed once and reused per hostname: every
+  brand gets the same seven prefixes, and a route added for one site but not the
+  other is a bug that only shows up as a 404 on whichever site was forgotten.
+*/}}
+{{- define "maps-proxy.terracottaPaths" -}}
+{{- range list "/rgb" "/singleband" "/metadata" "/keys" "/colormap" "/datasets" "/compute" }}
+        - backend:
+            service:
+              name: terracotta
+              port:
+                number: 5000
+          path: {{ . }}
+          pathType: Prefix
+{{- end }}
+{{- end -}}
 kind: Ingress
 apiVersion: networking.k8s.io/v1
 metadata:
@@ -19,55 +35,7 @@ spec:
     - host: maps.ollebo.com
       http:
         paths:
-        - backend:
-            service:
-              name: terracotta
-              port:
-                number: 5000
-          path: /rgb
-          pathType: Prefix
-        - backend:
-            service:
-              name: terracotta
-              port:
-                number: 5000
-          path: /singleband
-          pathType: Prefix
-        - backend:
-            service:
-              name: terracotta
-              port:
-                number: 5000
-          path: /metadata
-          pathType: Prefix
-        - backend:
-            service:
-              name: terracotta
-              port:
-                number: 5000
-          path: /keys
-          pathType: Prefix
-        - backend:
-            service:
-              name: terracotta
-              port:
-                number: 5000
-          path: /colormap
-          pathType: Prefix
-        - backend:
-            service:
-              name: terracotta
-              port:
-                number: 5000
-          path: /datasets
-          pathType: Prefix
-        - backend:
-            service:
-              name: terracotta
-              port:
-                number: 5000
-          path: /compute
-          pathType: Prefix
+{{- include "maps-proxy.terracottaPaths" . }}
 ---
 # maps-proxy catch-all is a SEPARATE ingress WITHOUT the terracotta-cors
 # middleware: that middleware sets Access-Control-Allow-Origin: *, which both
@@ -119,6 +87,77 @@ spec:
     secretName: maps-private-ollebo-tls
   rules:
     - host: maps-private.ollebo.com
+      http:
+        paths:
+        - backend:
+            service:
+              name: {{ .Values.name }}
+              port:
+                number: 8080
+          path: /
+          pathType: Prefix
+---
+# northamlin.com (the US site) is the SAME dw image, the same Keycloak realm and
+# the same buckets -- so it is the same maps-proxy and the same terracotta, just
+# reached under a second name. It needs its own hostname rather than borrowing
+# maps.ollebo.com because dw scopes the `access_token` cookie to the apex the
+# browser is on (COOKIE_DOMAIN=.northamlin.com): a request to maps.ollebo.com
+# from northamlin.com carries no cookie, so every private map, model and layer
+# 401s. Public tiles were never affected, which is why this looked fine at
+# launch.
+#
+# These two mirror the ollebo pair above -- terracotta's prefixes with the CORS
+# and cache middlewares, then a catch-all to maps-proxy with neither. Both
+# namespaced in `ollebo`, because that is where the Services and the Middlewares
+# live and traefik runs without --providers.kubernetescrd.allowCrossNamespace.
+#
+# The cert only issues once maps.northamlin.com resolves to 65.109.40.143. The
+# other front-end address, 65.21.254.116, does not hairpin, so cert-manager's
+# in-cluster HTTP-01 self-check can never pass against it and the Certificate
+# stays pending forever. That is what kept northamlin.com itself dark for eight
+# months.
+kind: Ingress
+apiVersion: networking.k8s.io/v1
+metadata:
+   name: "public-maps-northamlin-com"
+   namespace: ollebo
+   annotations:
+      kubernetes.io/ingress.class: "traefik"
+      cert-manager.io/cluster-issuer: "http"
+      kubernetes.io/tls-acme: "true"
+      traefik.ingress.kubernetes.io/router.entrypoints: websecure
+      traefik.ingress.kubernetes.io/router.tls: "true"
+      traefik.ingress.kubernetes.io/router.middlewares: "ollebo-terracotta-cors@kubernetescrd,ollebo-terracotta-cache@kubernetescrd"
+spec:
+  tls:
+  - hosts:
+    - maps.northamlin.com
+    secretName: maps-northamlin-tls
+  rules:
+    - host: maps.northamlin.com
+      http:
+        paths:
+{{- include "maps-proxy.terracottaPaths" . }}
+---
+# Catch-all for maps.northamlin.com. No CORS middleware, for the same reason the
+# ollebo catch-all carries none; maps-proxy answers with the caller's own origin
+# and allow-credentials. Reuses the cert requested by the ingress above.
+kind: Ingress
+apiVersion: networking.k8s.io/v1
+metadata:
+   name: "maps-proxy-northamlin-com"
+   namespace: ollebo
+   annotations:
+      kubernetes.io/ingress.class: "traefik"
+      traefik.ingress.kubernetes.io/router.entrypoints: websecure
+      traefik.ingress.kubernetes.io/router.tls: "true"
+spec:
+  tls:
+  - hosts:
+    - maps.northamlin.com
+    secretName: maps-northamlin-tls
+  rules:
+    - host: maps.northamlin.com
       http:
         paths:
         - backend:
