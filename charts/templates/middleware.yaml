@@ -19,6 +19,13 @@ spec:
       - https://www.ollebo.com
       - https://ollebo.com
       - https://maps.ollebo.com
+      # northamlin.com (the US site) is served by this same maps-proxy and the
+      # same terracotta under maps.northamlin.com. One Middleware covers both
+      # hostnames because it is attached per-route, and the allowlist is keyed
+      # on the CALLER's origin, not on which host answered.
+      - https://www.northamlin.com
+      - https://northamlin.com
+      - https://maps.northamlin.com
     # Dev servers against prod: vite moves between 5173/4173/3000, and
     # localhost vs 127.0.0.1 are distinct origins. Anchored -- Traefik matches
     # this regex unanchored, so a bare pattern would let

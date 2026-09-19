@@ -17,13 +17,39 @@ import utils
 # Private maps/models are fetched cross-origin from the app (dash.ollebo.com) to
 # maps.ollebo.com and must carry the `access_token` cookie, so the browser needs
 # CORS with credentials. Allow-Origin must echo the caller's origin (not "*")
-# when credentials are allowed, so mirror back any ollebo.com origin.
-_ALLOWED_ORIGIN = re.compile(r"^https://([a-z0-9-]+\.)*ollebo\.com$", re.IGNORECASE)
+# when credentials are allowed, so mirror back any origin under one of the apex
+# domains this deployment serves.
+#
+# It is a LIST because one maps-proxy now fronts two sites -- ollebo.com and
+# northamlin.com -- off the same buckets, the same Keycloak realm and the same
+# martin. The brands differ only in name: dw scopes its `access_token` cookie to
+# whichever apex the browser is on, so maps.<apex> has to be a real host per
+# brand, and each of those hosts has to accept its own siblings' origins.
+# CORS_ALLOWED_DOMAINS is a comma-separated list of APEX domains, no scheme.
+_DEFAULT_ALLOWED_DOMAINS = "ollebo.com"
+_ALLOWED_DOMAINS = [
+    domain.strip().lower()
+    for domain in os.environ.get(
+        "CORS_ALLOWED_DOMAINS", _DEFAULT_ALLOWED_DOMAINS
+    ).split(",")
+    if domain.strip()
+]
+# An empty list must match NOTHING. Folding it into the alternation below would
+# produce `(?:)`, an empty group that matches the empty string -- which would
+# let `https://anything.` through rather than closing CORS off.
+_ALLOWED_ORIGIN = re.compile(
+    r"^https://([a-z0-9-]+\.)*(?:{})$".format(
+        "|".join(re.escape(domain) for domain in _ALLOWED_DOMAINS)
+    )
+    if _ALLOWED_DOMAINS
+    else r"(?!)",
+    re.IGNORECASE,
+)
 
 # The same app run from a dev server is http://localhost:<port> (or 127.0.0.1 --
 # a different origin to the browser), which no ollebo.com pattern matches, so
 # private maps/models/detections would fail CORS in local development. Match any
-# loopback port; set CORS_ALLOW_LOOPBACK=0 to serve only the ollebo.com hosts.
+# loopback port; set CORS_ALLOW_LOOPBACK=0 to serve only the allowed domains.
 _LOOPBACK_ORIGIN = re.compile(r"^http://(localhost|127\.0\.0\.1)(:\d+)?$", re.IGNORECASE)
 _ALLOW_LOOPBACK = os.environ.get("CORS_ALLOW_LOOPBACK", "1") != "0"
 
