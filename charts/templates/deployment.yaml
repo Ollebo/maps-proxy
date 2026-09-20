@@ -63,6 +63,15 @@ spec:
               value: "6379"
             - name: OIDC_DISCOVERY_URL
               value: https://auth.ollebo.com/realms/master/.well-known/openid-configuration
+            # Both of Keycloak's public names, because one Keycloak answers on
+            # both and a token carries the issuer of whichever host minted it.
+            # Same realm, same signing keys, so only the string differs -- but
+            # code/auth.py checks it, and a US token whose issuer is missing
+            # here 401s every private map, model and layer. Only the discovery
+            # URL above is fetched: adding the second one would make this pod's
+            # boot depend on two hostnames for metadata that is identical.
+            - name: OIDC_ALLOWED_ISSUERS
+              value: https://auth.ollebo.com/realms/master,https://auth.northamlin.com/realms/master
             - name: OIDC_COOKIE_NAME
               value: access_token
             # Apex domains whose sub-hosts may make credentialed cross-origin

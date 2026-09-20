@@ -62,7 +62,12 @@ The token (`dw-client`) carries a **`groups`** claim = the user's group names
 
 `maps-proxy` (`code/auth.py`) authorizes exactly like `api/code/jwt_auth.py`:
 1. Extract the token from **`Authorization: Bearer`**, else the **`access_token` cookie**.
-2. Validate against Keycloak JWKS (issuer `https://auth.ollebo.com/realms/master`, no audience check).
+2. Validate against Keycloak JWKS. No audience check. The `iss` claim must be
+   one of `OIDC_ALLOWED_ISSUERS` — `https://auth.ollebo.com/realms/master` and
+   `https://auth.northamlin.com/realms/master`, because one Keycloak answers on
+   both names off one realm and one set of signing keys, so a token differs only
+   in which host minted it. Unset, that env var falls back to the discovery
+   document's own issuer and the check is single-valued as before.
 3. `space_id` = first path segment after `models/`|`private/`. Allow iff
    `space_id ∈ groups` (both canonicalized to lowercase UUIDs; non-UUID entries dropped).
 4. Result: **401** = no/invalid token · **403** = valid token but not a space member · **200** = ok.

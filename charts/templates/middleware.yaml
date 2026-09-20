@@ -16,6 +16,7 @@ spec:
     # maps-proxy/code/app.py -- all four are independent allowlists.
     accessControlAllowOriginList:
       - https://dash.ollebo.com
+      - https://dash.northamlin.com
       - https://www.ollebo.com
       - https://ollebo.com
       - https://maps.ollebo.com
