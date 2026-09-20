@@ -11,10 +11,27 @@ OIDC_DISCOVERY_URL = os.environ["OIDC_DISCOVERY_URL"]
 OIDC_COOKIE_NAME = os.environ.get("OIDC_COOKIE_NAME", "access_token")
 OIDC_AUDIENCE = os.environ.get("OIDC_AUDIENCE")
 
+# Issuer strings this proxy will accept, comma-separated. One Keycloak serves
+# both auth.ollebo.com and auth.northamlin.com -- one realm, one user pool, one
+# set of signing keys -- so a token minted on either host verifies against the
+# JWKS below and differs only in its `iss` claim. Without the second name here,
+# every private map, model and layer on the US site 401s.
+#
+# Only the ISSUERS are configured, not a second discovery URL: the keys are the
+# same, so fetching the other host's metadata would buy nothing and would make
+# this module's import-time fetch depend on two hostnames instead of one. A pod
+# enforces whatever it read at boot, so widen this and roll the deployment
+# BEFORE a second issuer starts minting tokens, never after.
+OIDC_ALLOWED_ISSUERS = os.environ.get("OIDC_ALLOWED_ISSUERS", "")
+
 
 _discovery = requests.get(OIDC_DISCOVERY_URL, timeout=10).json()
 _ISSUER = _discovery["issuer"]
 _JWKS_URI = _discovery["jwks_uri"]
+
+# Defaults to the discovery document's own issuer, so an unset env var keeps the
+# single-issuer behaviour this had before.
+_ISSUERS = {i.strip() for i in OIDC_ALLOWED_ISSUERS.split(",") if i.strip()} or {_ISSUER}
 
 _jwks_lock = threading.Lock()
 _jwks_by_kid = {}
@@ -50,15 +67,21 @@ def validate_token(token):
     key = _signing_key(kid)
     if key is None:
         raise jwt.InvalidTokenError("unknown kid")
-    options = {"verify_aud": OIDC_AUDIENCE is not None}
-    return jwt.decode(
+    # `iss` is checked here rather than through jwt.decode(issuer=...), which
+    # takes a single string and cannot express an allowlist. Everything else
+    # PyJWT validates -- signature, exp, and aud when one is configured -- is
+    # unchanged; this only widens which issuer is acceptable.
+    options = {"verify_aud": OIDC_AUDIENCE is not None, "verify_iss": False}
+    claims = jwt.decode(
         token,
         key=key,
         algorithms=["RS256"],
-        issuer=_ISSUER,
         audience=OIDC_AUDIENCE,
         options=options,
     )
+    if claims.get("iss") not in _ISSUERS:
+        raise jwt.InvalidIssuerError(claims.get("iss"))
+    return claims
 
 
 def _canonical_uuid(value):
