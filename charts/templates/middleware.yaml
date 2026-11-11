@@ -37,13 +37,72 @@ spec:
     accessControlMaxAge: 100
     addVaryHeader: true
 ---
-# 1-day browser/CDN cache for terracotta tiles (referenced as ollebo-terracotta-cache@kubernetescrd)
+# --- spridningstillstand.md: terracotta is never reachable without a gate ---
+#
+# Private (full-resolution) tiles: forwardAuth asks maps-proxy whether the
+# caller is a member of the space in the path, then /private-tiles is stripped
+# and the request goes to the PRIVATE terracotta. Never cached by shared caches.
 apiVersion: traefik.io/v1alpha1
 kind: Middleware
 metadata:
-  name: terracotta-cache
+  name: private-tiles-auth
+  namespace: ollebo
+spec:
+  forwardAuth:
+    address: http://{{ .Values.name }}.ollebo.svc.cluster.local:8080/auth/tiles
+    trustForwardHeader: false
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: private-tiles-strip
+  namespace: ollebo
+spec:
+  stripPrefix:
+    prefixes:
+      - /private-tiles
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: private-tiles-cache
   namespace: ollebo
 spec:
   headers:
     customResponseHeaders:
-      Cache-Control: "public, max-age=86400"
+      Cache-Control: "private, no-store"
+---
+# Public (coarse 0.6 m) tiles: forwardAuth enforces the per-dataset max public
+# zoom and a query-parameter allowlist, then /public is stripped and the request
+# goes to the PUBLIC terracotta (public catalog only).
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: public-tiles-gate
+  namespace: ollebo
+spec:
+  forwardAuth:
+    address: http://{{ .Values.name }}.ollebo.svc.cluster.local:8080/auth/public-tile
+    trustForwardHeader: false
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: public-tiles-strip
+  namespace: ollebo
+spec:
+  stripPrefix:
+    prefixes:
+      - /public
+---
+# Short public cache: an unpublished map must disappear from browsers and any
+# intermediate cache quickly (policy 5.5). Was 1 day.
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: public-tiles-cache
+  namespace: ollebo
+spec:
+  headers:
+    customResponseHeaders:
+      Cache-Control: "public, max-age=3600"

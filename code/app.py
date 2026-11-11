@@ -1,7 +1,7 @@
 import os
 import re
 
-from flask import Flask, make_response, request
+from flask import Flask, jsonify, make_response, request
 from prometheus_flask_exporter import PrometheusMetrics
 
 
@@ -9,6 +9,7 @@ app = Flask(__name__)
 metrics = PrometheusMetrics(app)
 
 import ext
+import gate
 import k8s
 import minioBackend
 import tiles
@@ -102,10 +103,36 @@ def _cors_headers(resp):
 app.add_url_rule('/ready', view_func=k8s.ready)
 app.add_url_rule('/healthz', view_func=k8s.healthz)
 
-#Clear cache
+# Cache maintenance. Both need the internal API key: an open cache wipe was a
+# free denial of service, and purge is what unpublish relies on (policy 5.5).
 @app.route('/cache/clear/')
 def cache():
+    if not utils.purge_key_ok(request):
+        return jsonify({"error": "forbidden"}), 403
     return utils.cleanCache()
+
+
+@app.route('/cache/purge', methods=['POST'])
+def cache_purge():
+    if not utils.purge_key_ok(request):
+        return jsonify({"error": "forbidden"}), 403
+    body = request.get_json(silent=True) or {}
+    prefix = body.get("prefix") or ""
+    removed = utils.purge_prefix(minioBackend.S3_FILE_BUCKET, prefix)
+    if body.get("space") and body.get("map"):
+        gate.forget_maxzoom(body["space"], body["map"])
+    return jsonify({"removed": removed})
+
+
+# Traefik forwardAuth targets for terracotta (spridningstillstand.md 5.2/6).
+@app.route('/auth/tiles')
+def auth_private_tiles():
+    return gate.private_tiles()
+
+
+@app.route('/auth/public-tile')
+def auth_public_tile():
+    return gate.public_tile()
 
 
 # Maps we host ourselves: vector tiles rendered by martin from our own PostGIS,
