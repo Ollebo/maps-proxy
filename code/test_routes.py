@@ -34,6 +34,7 @@ CASES = [
     ("/sweden/tile.json",                    "tile_json"),
     ("/sweden/style.json",                   "style_json"),
     ("/proxy/pcn/ogc",                       "proxy_upstream"),
+    ("/ext/lm-topowebb/8/136/74.png",        "ext_tile"),
     # The catch-all must keep everything it had. The auth-gated prefixes are the
     # ones that actually matter.
     ("/models/0000-0000/model.obj",          "maps"),

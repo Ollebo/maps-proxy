@@ -38,6 +38,14 @@ spec:
           imagePullPolicy: Always
           ports:
             - containerPort: 8080
+          # Credentials for /ext upstreams that need them (Lantmäteriet
+          # Geotorget: GEOTORGET_TOKEN, or GEOTORGET_USERNAME/_PASSWORD). Optional
+          # so the proxy starts before the account exists; such sources answer
+          # 503 until it does. Never logged, never in a URL -- see code/ext.py.
+          envFrom:
+            - secretRef:
+                name: geotorget
+                optional: true
           env:
             - name: S3_ENDPOINT
               value: hel1.your-objectstorage.com
