@@ -33,7 +33,7 @@ MARTIN_TIMEOUT = float(os.environ.get("MARTIN_TIMEOUT", "30"))
 # tile routes refuse them even though the importer refuses them too -- the two
 # lists are cheap, and only one of them is deployed with the proxy.
 RESERVED_LAYER_IDS = frozenset([
-    "cache", "colormap", "compute", "datasets", "healthz", "keys", "metadata",
+    "cache", "colormap", "compute", "datasets", "ext", "healthz", "keys", "metadata",
     "metrics", "models", "private", "proxy", "ready", "rgb", "singleband",
     "tiles",
 ])

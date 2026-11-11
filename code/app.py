@@ -8,6 +8,7 @@ from prometheus_flask_exporter import PrometheusMetrics
 app = Flask(__name__)
 metrics = PrometheusMetrics(app)
 
+import ext
 import k8s
 import minioBackend
 import tiles
@@ -126,6 +127,14 @@ def tile_json(layer):
 @app.route('/<layer>/style.json')
 def style_json(layer):
     return tiles.metadata_document(layer, 'style.json')
+
+
+# External tile services, served from our own cache so no viewer request ever
+# reaches the provider. Only sources geodata publishes as mode=proxy,
+# status=enabled are answered; see ext.py.
+@app.route('/ext/<source_id>/<int:z>/<int:x>/<int:y>.<fmt>')
+def ext_tile(source_id, z, x, y, fmt):
+    return ext.tile(source_id, z, x, y, fmt)
 
 
 # Upstreams we have to reach over plain HTTP on the browser's behalf; see
