@@ -68,6 +68,38 @@ CONTENT_TYPES = {
 }
 
 
+_TERRACOTTA_PREFIXES = ("rgb/", "singleband/", "metadata/", "keys", "colormap",
+                        "datasets", "compute/")
+
+
+def _blocked_public_key(key):
+    lower = key.lower()
+    if lower.startswith(_TERRACOTTA_PREFIXES):
+        return True
+    base = lower.rsplit("/", 1)[-1]
+    if base == "detections.json" or base.endswith(".geojson") and "detect" in base:
+        return True
+    if lower.endswith((".tif", ".tiff")) and not lower.startswith("public/"):
+        return True
+    if "/cogs/" in "/" + lower:
+        return True
+    return False
+
+
+def _space_of(key):
+    """Space id that guards a private/ or models/ key.
+
+    Layers and models put the space first (<space>/...); map outputs from
+    map-maker/geo-detect use <realm>/cogs/<space>/<map>/..., where the first
+    segment is the Keycloak realm. Reading the realm as the space 403'd every
+    member, so the cogs layout is recognised explicitly.
+    """
+    parts = (key or "").split("/")
+    if len(parts) >= 3 and parts[1] == "cogs":
+        return parts[2]
+    return parts[0] if parts else ""
+
+
 def getFile(filename):
     print(filename)
     if filename == "" or filename == "index.html":
@@ -77,8 +109,14 @@ def getFile(filename):
 
     bucket, key = resolveBucket(filename)
 
+    # spridningstillstand.md 5.3/5.6: the anonymous catch-all never serves
+    # COGs or detections outside the coarse public/ prefix, nor the legacy
+    # <realm>/cogs/... layout (pre-compliance public maps were too fine).
+    if bucket == S3_FILE_BUCKET and _blocked_public_key(key):
+        return jsonify({"error": "not found"}), 404
+
     if filename.startswith("private/") or filename.startswith("models/"):
-        space_id = key.split("/", 1)[0] if key else ""
+        space_id = _space_of(key)
         if not space_id:
             return jsonify({"error": "missing space id"}), 400
         err = auth.check_space_access(request, space_id)

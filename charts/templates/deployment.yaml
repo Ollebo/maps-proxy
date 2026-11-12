@@ -101,6 +101,17 @@ spec:
             # re-import invalidates a layer without a purge.
             - name: TILE_CACHE_BUCKET
               value: ollebo-maps
+            # spridningstillstand.md: /auth/public-tile reads dataset bounds from
+            # the PUBLIC terracotta to compute each map's max public zoom.
+            - name: TERRACOTTA_PUBLIC_URL
+              value: http://terracotta-public:5000
+            # Shared with map-maker (MAPS_PROXY_PURGE_KEY): guards /cache/purge
+            # and /cache/clear/. Unset = both refuse.
+            - name: PURGE_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: ollebo
+                  key: API_KEY
           volumeMounts:
             # /file_cache was the container's writable layer: unbounded, and only
             # ever emptied by the (unauthenticated) /cache/clear/ route. Bounded
