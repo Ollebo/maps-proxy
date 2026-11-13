@@ -1,0 +1,20 @@
+{{- /*
+Scraped by kube-prometheus-stack (namespace monitoring selects all PodMonitors).
+Not gated on .Capabilities: CI renders with offline `helm template`.
+*/ -}}
+{{- if .Values.metrics.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: {{ .Values.name }}
+  labels:
+    app: {{ .Values.name }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ .Values.name }}
+  podMetricsEndpoints:
+    - port: http
+      path: /metrics
+      interval: 30s
+{{- end }}

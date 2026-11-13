@@ -2,11 +2,33 @@ import os
 import re
 
 from flask import Flask, jsonify, make_response, request
-from prometheus_flask_exporter import PrometheusMetrics
+
+if os.environ.get("PROMETHEUS_MULTIPROC_DIR"):
+    # gunicorn with several workers (start.sh): aggregate all workers.
+    from prometheus_flask_exporter.multiprocess import GunicornInternalPrometheusMetrics as _Metrics
+else:
+    # flask dev server / tests: one process.
+    from prometheus_flask_exporter import PrometheusMetrics as _Metrics
 
 
 app = Flask(__name__)
-metrics = PrometheusMetrics(app)
+
+
+def _metrics_path_label(req):
+    # Route template (/tiles/<z>/<x>/<y>...), never the raw path: raw tile
+    # paths would create a series per tile.
+    return req.url_rule.rule if req.url_rule else "<unmatched>"
+
+
+metrics = _Metrics(app, group_by=_metrics_path_label)
+
+
+@app.before_request
+def _hide_metrics_from_ingress():
+    # Prometheus scrapes the pod IP directly; requests via Traefik carry
+    # X-Forwarded-For. Keep /metrics off maps.ollebo.com.
+    if request.path == "/metrics" and request.headers.get("X-Forwarded-For"):
+        return jsonify({"error": "not found"}), 404
 
 import ext
 import gate

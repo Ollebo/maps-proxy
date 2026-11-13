@@ -37,7 +37,8 @@ spec:
           name: proxy
           imagePullPolicy: Always
           ports:
-            - containerPort: 8080
+            - name: http
+              containerPort: 8080
           # Credentials for /ext upstreams that need them (Lantmäteriet
           # Geotorget: GEOTORGET_TOKEN, or GEOTORGET_USERNAME/_PASSWORD). Optional
           # so the proxy starts before the account exists; such sources answer

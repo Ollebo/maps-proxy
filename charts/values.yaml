@@ -9,3 +9,7 @@ name: maps-proxy
 image:
   tag: latest
 
+
+# Prometheus PodMonitor (/metrics on the http port, gunicorn multiprocess).
+metrics:
+  enabled: true
