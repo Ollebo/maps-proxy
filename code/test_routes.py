@@ -33,13 +33,13 @@ CASES = [
     ("/nvv-skyddad-natur/6/35/18.pbf",       "vector_tile"),
     ("/sweden/tile.json",                    "tile_json"),
     ("/sweden/style.json",                   "style_json"),
+    ("/tiles/index.json",                    "catalog_index"),
     ("/proxy/pcn/ogc",                       "proxy_upstream"),
     ("/ext/lm-topowebb/8/136/74.png",        "ext_tile"),
     # The catch-all must keep everything it had. The auth-gated prefixes are the
     # ones that actually matter.
     ("/models/0000-0000/model.obj",          "maps"),
     ("/private/0000-0000/cogs/a/b.png",      "maps"),
-    ("/tiles/index.json",                    "maps"),
     ("/master/cogs/space/map/rgb__r.tif",    "maps"),
     # Not a tile: three path segments before the extension.
     ("/a/b/c/d/8/136/74.pbf",                "maps"),

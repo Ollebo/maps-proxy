@@ -174,6 +174,24 @@ def metadata_document(layer, name):
     return response
 
 
+def catalog_index():
+    """tiles/index.json, read from the bucket on every request.
+
+    It used to fall through to minioBackend.getFile, which keeps a local copy
+    in /file_cache forever: after the first request a re-import's new catalog
+    never reached ollebo-maps' generator until the pod restarted
+    (sks-utford-avverkning v2, 2026-11-17, stayed v1 in the index). It is one
+    small object, read by a build script, so there is nothing to cache here.
+    """
+    raw = _get_object(TILE_CACHE_BUCKET, "{0}/index.json".format(TILES_PREFIX))
+    if raw is None:
+        return minioBackend.getFile("{0}/index.json".format(TILES_PREFIX))
+    response = make_response(raw)
+    response.headers.set("Content-Type", "application/json")
+    response.headers.set("Cache-Control", "public, max-age=60")
+    return response
+
+
 # --- upstream proxying -------------------------------------------------------
 
 # Geoportale Nazionale (pcn) is HTTP-only -- its HTTPS listener redirects to a

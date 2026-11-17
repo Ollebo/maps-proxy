@@ -172,6 +172,11 @@ def vector_tile(layer, z, x, y):
     return tiles.tile(layer, z, x, y)
 
 
+@app.route('/tiles/index.json')
+def catalog_index():
+    return tiles.catalog_index()
+
+
 @app.route('/<layer>/tile.json')
 def tile_json(layer):
     return tiles.metadata_document(layer, 'tile.json')
