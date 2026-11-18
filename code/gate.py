@@ -25,6 +25,7 @@ import requests
 from flask import jsonify, request
 
 import auth
+import map_metrics
 
 TERRACOTTA_PUBLIC_URL = os.environ.get("TERRACOTTA_PUBLIC_URL", "http://terracotta-public:5000")
 MAXZOOM_TTL_S = int(os.environ.get("PUBLIC_MAXZOOM_TTL_S", "600"))
@@ -44,7 +45,8 @@ def max_public_zoom(max_abs_lat_deg, tile_size=256, pixel_ratio=1):
 
 _SEG = r"[A-Za-z0-9_.-]+"
 _PRIVATE_RE = re.compile(
-    r"^/private-tiles/(?:rgb|singleband)/(?P<space>{0})/".format(_SEG)
+    # The map segment is only read for /stats/maps; access is per space.
+    r"^/private-tiles/(?:rgb|singleband)/(?P<space>{0})/(?:(?P<map>{0})/)?".format(_SEG)
 )
 _PUBLIC_RGB_RE = re.compile(
     r"^/public/rgb/(?P<space>{0})/(?P<map>{0})/(?P<z>\d+)/(?P<x>\d+)/(?P<y>\d+)\.png$".format(_SEG)
@@ -66,15 +68,24 @@ def _forwarded():
     return parts.path, parse_qs(parts.query, keep_blank_values=True)
 
 
+def _decision(route, result, space=None):
+    # `space` is passed only once the request has proved it exists.
+    map_metrics.GATE_DECISIONS.labels(route, map_metrics.space_label(space), result).inc()
+
+
 def private_tiles():
     path, _ = _forwarded()
     m = _PRIVATE_RE.match(path)
     if not m:
+        _decision("private", "not_found")
         return jsonify({"error": "not found"}), 404
     err = auth.check_space_access(request, m.group("space"))
     if err is not None:
         status, body = err
+        _decision("private", "deny")
         return jsonify(body), status
+    _decision("private", "allow", m.group("space"))
+    map_metrics.record_map(m.group("space"), m.group("map"), "private_tile", "allow")
     resp = jsonify({"ok": True})
     return resp, 200
 
@@ -85,7 +96,9 @@ def _dataset_maxzoom(space, map_id, variant):
     with _maxzoom_lock:
         hit = _maxzoom_cache.get(key)
         if hit and hit[0] > now:
+            map_metrics.GATE_MAXZOOM_CACHE.labels("hit").inc()
             return hit[1]
+    map_metrics.GATE_MAXZOOM_CACHE.labels("miss").inc()
     url = "{0}/metadata/{1}/{2}/{3}".format(TERRACOTTA_PUBLIC_URL, space, map_id, variant)
     resp = requests.get(url, timeout=5)
     if resp.status_code == 404:
@@ -109,9 +122,11 @@ def public_tile():
     path, query = _forwarded()
     m = _PUBLIC_RGB_RE.match(path) or _PUBLIC_SB_RE.match(path)
     if not m:
+        _decision("public", "not_found")
         return jsonify({"error": "not found"}), 404
     unknown = set(query) - _PUBLIC_PARAMS
     if unknown:
+        _decision("public", "bad_request")
         return jsonify({"error": "parameter not allowed", "params": sorted(unknown)}), 400
 
     groups = m.groupdict()
@@ -121,17 +136,29 @@ def public_tile():
         # three channels are built from the same coarse source.
         variant = (query.get("r") or [""])[0]
         if not variant:
+            _decision("public", "bad_request")
             return jsonify({"error": "missing r"}), 400
+    space, map_id = groups["space"], groups["map"]
     try:
-        maxzoom = _dataset_maxzoom(groups["space"], groups["map"], variant)
+        maxzoom = _dataset_maxzoom(space, map_id, variant)
     except Exception as e:
         print("ERROR public maxzoom lookup {0}: {1}".format(path, e))
+        _decision("public", "lookup_error")
+        map_metrics.record_map(space, map_id, "public_tile", "lookup_error", error=True)
         return jsonify({"error": "unavailable"}), 503
     if maxzoom is None:
+        # Terracotta has no such dataset. For a map the viewer links to, this
+        # is the map being broken -- so it counts as an error in /stats/maps.
+        _decision("public", "not_found")
+        map_metrics.record_map(space, map_id, "public_tile", "not_found", error=True)
         return jsonify({"error": "not found"}), 404
     if int(groups["z"]) > maxzoom:
         # Overzoom happens in the client (policy 5.2); never render past maxzoom.
+        _decision("public", "above_maxzoom", space)
+        map_metrics.record_map(space, map_id, "public_tile", "above_maxzoom")
         resp = jsonify({"error": "zoom above public maximum", "maxzoom": maxzoom})
         resp.headers["X-Max-Zoom"] = str(maxzoom)
         return resp, 404
+    _decision("public", "allow", space)
+    map_metrics.record_map(space, map_id, "public_tile", "allow")
     return jsonify({"ok": True}), 200
