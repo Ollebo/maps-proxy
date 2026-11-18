@@ -31,12 +31,14 @@ metrics = _Metrics(app, group_by=_metrics_path_label)
 def _hide_metrics_from_ingress():
     # Prometheus scrapes the pod IP directly; requests via Traefik carry
     # X-Forwarded-For. Keep /metrics off maps.ollebo.com.
-    if request.path == "/metrics" and request.headers.get("X-Forwarded-For"):
+    # /stats/maps lists map ids, so it gets the same treatment.
+    if request.path in ("/metrics", "/stats/maps") and request.headers.get("X-Forwarded-For"):
         return jsonify({"error": "not found"}), 404
 
 import ext
 import gate
 import k8s
+import map_metrics
 import minioBackend
 import tiles
 import utils
@@ -94,6 +96,11 @@ def _allowed_origin():
 
 
 @app.before_request
+def _start_map_metrics():
+    map_metrics.ensure_started()
+
+
+@app.before_request
 def _cors_preflight():
     if request.method == "OPTIONS":
         resp = make_response("", 204)
@@ -135,6 +142,7 @@ app.add_url_rule('/healthz', view_func=k8s.healthz)
 def cache():
     if not utils.purge_key_ok(request):
         return jsonify({"error": "forbidden"}), 403
+    map_metrics.CACHE_PURGES.labels("all").inc()
     return utils.cleanCache()
 
 
@@ -145,9 +153,24 @@ def cache_purge():
     body = request.get_json(silent=True) or {}
     prefix = body.get("prefix") or ""
     removed = utils.purge_prefix(minioBackend.S3_FILE_BUCKET, prefix)
+    map_metrics.CACHE_PURGES.labels("prefix").inc()
     if body.get("space") and body.get("map"):
         gate.forget_maxzoom(body["space"], body["map"])
     return jsonify({"removed": removed})
+
+
+# Per-map request and error counts, merged across workers. In-cluster only
+# (see _hide_metrics_from_ingress): map ids never go in Prometheus labels, so
+# this is where "which map is failing" is answered.
+#   /stats/maps?sort=requests|errors|recent&top=50
+@app.route('/stats/maps')
+@metrics.do_not_track()
+def stats_maps():
+    try:
+        top = int(request.args.get("top", "50"))
+    except ValueError:
+        top = 50
+    return jsonify(map_metrics.snapshot(top=top, sort=request.args.get("sort", "requests")))
 
 
 # Traefik forwardAuth targets for terracotta (spridningstillstand.md 5.2/6).

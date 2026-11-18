@@ -6,6 +6,7 @@ import time
 import requests
 from flask import Response, jsonify, make_response, request
 
+import map_metrics
 import minioBackend
 
 
@@ -71,10 +72,12 @@ def _put_object(bucket, key, data, content_type):
     try:
         minioBackend.client.put_object(
             bucket, key, io.BytesIO(data), len(data), content_type=content_type)
+        return True
     except Exception as error:
         # A cache write failing must not fail the request -- the tile is already
         # rendered and in hand; the next request just pays for it again.
         print("tile cache write failed for {0}: {1}".format(key, error))
+        return False
 
 
 def _metadata_key(layer, name):
@@ -134,7 +137,11 @@ def tile(layer, z, x, y):
     if metadata is None:
         return minioBackend.getFile(static_path)
 
+    # From here on the layer is one we host, so its name is a safe label.
+    count = lambda result: map_metrics.TILE_REQUESTS.labels("vector", layer, result).inc()
+
     if z < metadata.get("minzoom", 0) or z > metadata.get("maxzoom", 22):
+        count("out_of_range")
         return Response(status=204)
 
     version = (metadata.get("ollebo") or {}).get("version", 1)
@@ -143,21 +150,30 @@ def tile(layer, z, x, y):
 
     cached = _get_object(TILE_CACHE_BUCKET, key)
     if cached is not None:
+        count("hit")
         return _tile_response(cached)
 
+    started = time.time()
     try:
         data = _fetch_from_martin("tile_" + layer.replace("-", "_"), z, x, y)
     except requests.RequestException as error:
         print("martin request failed for {0}/{1}/{2}/{3}: {4}".format(
             layer, z, x, y, error))
+        count("upstream_error")
+        map_metrics.log_error("vector", "upstream_error", layer=layer,
+                              tile="{0}/{1}/{2}".format(z, x, y), error=str(error))
         return jsonify({"error": "tile backend unavailable"}), 502
+    map_metrics.TILE_UPSTREAM_LATENCY.labels(layer).observe(time.time() - started)
 
     if not data:
         # An empty tile is a real answer, not an error: the layer has nothing
         # here. 204 keeps it out of the cache so a later import can fill it.
+        count("empty")
         return Response(status=204)
 
-    _put_object(TILE_CACHE_BUCKET, key, data, MVT_CONTENT_TYPE)
+    count("miss")
+    if not _put_object(TILE_CACHE_BUCKET, key, data, MVT_CONTENT_TYPE):
+        map_metrics.TILE_CACHE_WRITE_FAILURES.labels(layer).inc()
     return _tile_response(data)
 
 
